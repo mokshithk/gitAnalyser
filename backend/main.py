@@ -5,6 +5,7 @@ from backend.config import settings
 from backend.db.database import engine
 from backend.auth.router import router as auth_router
 from backend.ingestion.router import router as ingestion_router
+from backend.analysis.router import router as analysis_router
 
 app = FastAPI(
     title="CodeProvenance API",
@@ -29,6 +30,7 @@ app.add_middleware(
 # Include Routers
 app.include_router(auth_router, prefix="/api")
 app.include_router(ingestion_router, prefix="/api")
+app.include_router(analysis_router, prefix="/api")
 
 @app.get("/api/health")
 def healthcheck():
