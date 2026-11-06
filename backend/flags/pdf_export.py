@@ -98,12 +98,16 @@ def generate_pdf_report(analysis, flags, matches, commit_metrics) -> bytes:
 
     # Review Priority Banner
     opts = analysis.options or {}
-    priority = opts.get("review_priority", "CLEAN")
+    if analysis.status == "failed":
+        priority = "NOT ANALYZED"
+    else:
+        priority = opts.get("review_priority", "CLEAN")
     priority_colors = {
         "HIGH": colors.HexColor("#ef4444"),
         "MEDIUM": colors.HexColor("#f59e0b"),
         "LOW": colors.HexColor("#3b82f6"),
         "CLEAN": colors.HexColor("#10b981"),
+        "NOT ANALYZED": colors.HexColor("#64748b"),
     }
     banner_color = priority_colors.get(priority, colors.HexColor("#64748b"))
 

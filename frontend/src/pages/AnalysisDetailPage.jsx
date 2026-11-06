@@ -90,7 +90,8 @@ export default function AnalysisDetailPage({ analysisId, onBack }) {
 
   const opts = analysis.options || {};
   const commitMetrics = opts.commit_metrics || {};
-  const priority = opts.review_priority || 'CLEAN';
+  const isFailed = analysis.status === 'failed';
+  const priority = isFailed ? 'NOT ANALYZED' : (opts.review_priority || (analysis.status === 'done' ? 'CLEAN' : 'PENDING'));
   const isRunning = ['queued', 'cloning', 'parsing', 'comparing'].includes(analysis.status);
 
   const priorityColors = {
@@ -98,6 +99,8 @@ export default function AnalysisDetailPage({ analysisId, onBack }) {
     MEDIUM: 'badge-medium',
     LOW: 'badge-low',
     CLEAN: 'badge-clean',
+    'NOT ANALYZED': 'badge-neutral',
+    PENDING: 'badge-low',
   };
 
   return (
@@ -130,12 +133,14 @@ export default function AnalysisDetailPage({ analysisId, onBack }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
-              <span className={`badge ${priorityColors[priority] || 'badge-low'}`}>
-                {priority} PRIORITY
+              <span className={`badge ${isFailed ? 'badge-neutral' : (priorityColors[priority] || 'badge-low')}`}>
+                {priority} {isFailed ? '' : 'PRIORITY'}
               </span>
-              <span className="badge badge-low" style={{ background: '#0b1120' }}>
-                {analysis.mode === 'full' ? 'Full History Mode' : 'Similarity Only Mode'}
-              </span>
+              {!isFailed && (
+                <span className="badge badge-low" style={{ background: '#0b1120' }}>
+                  {analysis.mode === 'full' ? 'Full History Mode' : 'Similarity Only Mode'}
+                </span>
+              )}
               <span style={{ fontSize: '0.75rem', color: '#64748b', fontFamily: 'var(--font-mono)' }}>
                 ID #{analysis.id}
               </span>

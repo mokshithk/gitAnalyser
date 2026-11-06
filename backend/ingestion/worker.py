@@ -81,6 +81,9 @@ def run_pipeline(analysis_id: int):
             analysis.status = "failed"
             analysis.error_message = str(e)
             analysis.finished_at = datetime.now(timezone.utc)
+            opts = dict(analysis.options or {})
+            opts["review_priority"] = "NOT ANALYZED"
+            analysis.options = opts
             db.commit()
     finally:
         # Cleanup temporary files

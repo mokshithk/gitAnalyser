@@ -108,7 +108,10 @@ def get_full_report(
     matches_count = db.query(SimilarityMatch).filter(SimilarityMatch.analysis_id == analysis_id).count()
 
     opts = analysis.options or {}
-    priority = opts.get("review_priority", "CLEAN")
+    if analysis.status == "failed":
+        priority = "NOT ANALYZED"
+    else:
+        priority = opts.get("review_priority", "CLEAN" if analysis.status == "done" else "PENDING")
 
     return ReportResponse(
         analysis_id=analysis.id,

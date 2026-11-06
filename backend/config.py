@@ -18,6 +18,7 @@ class Settings(BaseSettings):
 
     MAX_REPO_SIZE_MB: int = 250
     MAX_ZIP_SIZE_MB: int = 50
+    CLONE_TIMEOUT: int = 60
     CLONE_TIMEOUT_SECONDS: int = 60
     RETENTION_DAYS: int = 30
     SCANS_PER_USER_PER_HOUR: int = 20

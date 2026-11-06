@@ -45,15 +45,19 @@ export default function DashboardPage({ onSelectAnalysis, onNewAnalysis }) {
     }
   };
 
-  const getPriorityBadge = (options) => {
-    const priority = options?.review_priority || 'CLEAN';
+  const getPriorityBadge = (a) => {
+    if (a.status === 'failed') {
+      return <span className="badge badge-neutral">NOT ANALYZED</span>;
+    }
+    const priority = a.options?.review_priority || (a.status === 'done' ? 'CLEAN' : 'PENDING');
     const classes = {
       HIGH: 'badge-high',
       MEDIUM: 'badge-medium',
       LOW: 'badge-low',
       CLEAN: 'badge-clean',
+      PENDING: 'badge-low',
     };
-    return <span className={`badge ${classes[priority] || 'badge-low'}`}>{priority}</span>;
+    return <span className={`badge ${classes[priority] || 'badge-neutral'}`}>{priority}</span>;
   };
 
   const getStatusBadge = (status) => {
@@ -198,13 +202,13 @@ export default function DashboardPage({ onSelectAnalysis, onNewAnalysis }) {
                       <div style={{ textTransform: 'uppercase', fontSize: '0.75rem', color: '#cbd5e1', fontWeight: 600 }}>
                         {a.input_type}
                       </div>
-                      <div style={{ fontSize: '0.7rem', color: a.mode === 'full' ? '#38bdf8' : '#f59e0b' }}>
-                        {a.mode === 'full' ? 'Full History' : 'Similarity Only'}
+                      <div style={{ fontSize: '0.7rem', color: a.status === 'failed' ? '#64748b' : a.mode === 'full' ? '#38bdf8' : '#f59e0b' }}>
+                        {a.status === 'failed' ? 'Failed Ingestion' : (a.mode === 'full' ? 'Full History' : 'Similarity Only')}
                       </div>
                     </td>
 
                     <td style={{ padding: '1rem' }}>
-                      {getPriorityBadge(a.options)}
+                      {getPriorityBadge(a)}
                     </td>
 
                     <td style={{ padding: '1rem' }}>
