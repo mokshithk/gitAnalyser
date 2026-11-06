@@ -1,7 +1,10 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, Text, Float, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from backend.db.database import Base
+
+def utc_now():
+    return datetime.now(timezone.utc)
 
 class User(Base):
     __tablename__ = "users"
@@ -10,7 +13,7 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     role = Column(String(50), nullable=False, default="user")
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
 
     analyses = relationship("Analysis", back_populates="user", cascade="all, delete-orphan")
 
@@ -25,7 +28,7 @@ class Analysis(Base):
     status = Column(String(50), nullable=False, default="queued") # 'queued', 'cloning', 'parsing', 'comparing', 'done', 'failed'
     error_message = Column(Text, nullable=True)
     options = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
     finished_at = Column(DateTime, nullable=True)
 
     user = relationship("User", back_populates="analyses")
@@ -83,4 +86,4 @@ class ReferenceCorpus(Base):
     id = Column(Integer, primary_key=True, index=True)
     repo_url = Column(String(512), unique=True, nullable=False)
     language = Column(String(50), nullable=False, default="python")
-    added_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    added_at = Column(DateTime, default=utc_now, nullable=False)
