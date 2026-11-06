@@ -163,7 +163,39 @@ def generate_pdf_report(analysis, flags, matches, commit_metrics) -> bytes:
         ("PADDING", (0, 0), (-1, -1), 5),
     ]))
     story.append(metrics_table)
-    story.append(Spacer(1, 14))
+    story.append(Spacer(1, 10))
+
+    # Excluded Non-Source Artifacts (Filtering summary)
+    excluded_summary = commit_metrics.get("excluded_summary") if commit_metrics else None
+    if excluded_summary and excluded_summary.get("total_excluded_lines", 0) > 0:
+        tot_files = excluded_summary.get("total_excluded_files", 0)
+        tot_lines = excluded_summary.get("total_excluded_lines", 0)
+        story.append(Paragraph(
+            f"<b>Source Code Filtering & Excluded Artifacts:</b> Ignored {tot_lines:,} non-source lines across {tot_files} file changes "
+            "(lockfiles, vendored directories, minified assets, images/fonts, and large data dumps).",
+            body_style
+        ))
+        story.append(Spacer(1, 4))
+
+        sample_excluded = excluded_summary.get("sample_excluded", [])
+        if sample_excluded:
+            ex_data = [
+                [Paragraph("Ignored File Pattern / Path", bold_cell_style), Paragraph("Lines", bold_cell_style), Paragraph("Reason for Exclusion", bold_cell_style)]
+            ]
+            for se in sample_excluded[:5]:
+                ex_data.append([
+                    Paragraph(str(se.get("file", ""))[:50], table_cell_style),
+                    Paragraph(f"+{se.get('lines', 0):,}", table_cell_style),
+                    Paragraph(str(se.get("reason", "")), table_cell_style),
+                ])
+            ex_table = Table(ex_data, colWidths=[250, 70, 220])
+            ex_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f8fafc")),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+                ("PADDING", (0, 0), (-1, -1), 4),
+            ]))
+            story.append(ex_table)
+            story.append(Spacer(1, 10))
 
     # Flags & Concrete Evidence
     story.append(Paragraph(f"2. Explainable Flags & Evidentiary Signals ({len(flags)} items)", h2_style))
@@ -183,6 +215,11 @@ def generate_pdf_report(analysis, flags, matches, commit_metrics) -> bytes:
                 ev_summary.append(str(ev["description"]))
             if "sha" in ev:
                 ev_summary.append(f"Associated Commit SHA: {ev['sha']}")
+            if "commits" in ev and ev["commits"]:
+                commits_str = ", ".join(f"{c['sha']} (+{c['lines']}L in {c['seconds']}s)" for c in ev["commits"][:4])
+                ev_summary.append(f"Burst Commits: {commits_str}")
+            if "corroborating_signals" in ev and ev["corroborating_signals"]:
+                ev_summary.append(f"Corroborating: {', '.join(ev['corroborating_signals'])}")
             if "share_percentage" in ev:
                 ev_summary.append(f"Codebase Proportion: {ev['share_percentage']}%")
             if "matched_functions_count" in ev:

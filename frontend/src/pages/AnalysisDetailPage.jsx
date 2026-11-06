@@ -17,6 +17,7 @@ export default function AnalysisDetailPage({ analysisId, onBack }) {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('flags'); // 'flags', 'timeline', 'growth', 'similarity', 'commits'
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [showExcluded, setShowExcluded] = useState(false);
 
   const fetchAnalysisData = async () => {
     try {
@@ -237,6 +238,68 @@ export default function AnalysisDetailPage({ analysisId, onBack }) {
               {matches.length}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Source Code Filtering & Excluded Artifacts Notification */}
+      {analysis.status === 'done' && commitMetrics.excluded_summary && commitMetrics.excluded_summary.total_excluded_lines > 0 && (
+        <div className="card" style={{ marginBottom: '1.5rem', background: '#0f172a', border: '1px solid #1e293b' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', flexWrap: 'wrap', gap: '0.5rem' }} onClick={() => setShowExcluded(!showExcluded)}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+              <span style={{ color: '#38bdf8', fontSize: '0.9rem', fontWeight: 600 }}>
+                Source Code Filtering & Excluded Artifacts
+              </span>
+              <span className="badge badge-low" style={{ background: '#1e293b', color: '#94a3b8' }}>
+                {commitMetrics.excluded_summary.total_excluded_lines.toLocaleString()} lines ignored ({commitMetrics.excluded_summary.total_excluded_files} files)
+              </span>
+            </div>
+            <button className="btn btn-secondary" style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}>
+              {showExcluded ? '[- Collapse]' : '[+ View Excluded Files]'}
+            </button>
+          </div>
+
+          {showExcluded && (
+            <div style={{ marginTop: '1rem', borderTop: '1px solid #1e293b', paddingTop: '1rem' }}>
+              <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.75rem' }}>
+                Non-source artifacts (node_modules, venv, lockfiles, minified files, images, fonts, and large data dumps) are excluded from commit telemetry to prevent false burst anomalies:
+              </div>
+
+              {/* Category breakdown */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+                {Object.entries(commitMetrics.excluded_summary.categories_breakdown || {}).map(([cat, lines]) => (
+                  <div key={cat} style={{ background: '#1e293b', padding: '0.3rem 0.6rem', borderRadius: '4px', fontSize: '0.75rem' }}>
+                    <span style={{ color: '#cbd5e1' }}>{cat}:</span> <span style={{ color: '#f59e0b', fontWeight: 600 }}>+{lines.toLocaleString()} L</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Top Sample Excluded Files Table */}
+              {commitMetrics.excluded_summary.sample_excluded && commitMetrics.excluded_summary.sample_excluded.length > 0 && (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid #334155', color: '#94a3b8', textAlign: 'left' }}>
+                        <th style={{ padding: '0.4rem' }}>Commit</th>
+                        <th style={{ padding: '0.4rem' }}>Excluded File Path</th>
+                        <th style={{ padding: '0.4rem' }}>Lines</th>
+                        <th style={{ padding: '0.4rem' }}>Exclusion Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {commitMetrics.excluded_summary.sample_excluded.map((item, idx) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid #1e293b', color: '#cbd5e1' }}>
+                          <td style={{ padding: '0.4rem', fontFamily: 'var(--font-mono)', color: '#38bdf8' }}>{item.commit}</td>
+                          <td style={{ padding: '0.4rem', wordBreak: 'break-all' }}>{item.file}</td>
+                          <td style={{ padding: '0.4rem', color: '#f87171', fontFamily: 'var(--font-mono)' }}>+{item.lines.toLocaleString()}</td>
+                          <td style={{ padding: '0.4rem', color: '#94a3b8' }}>{item.reason}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

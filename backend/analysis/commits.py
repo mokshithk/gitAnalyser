@@ -1,10 +1,12 @@
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Optional
+import fnmatch
 import statistics
 import git
 from sqlalchemy.orm import Session
 
+from backend.config import settings
 from backend.db.models import Analysis, Commit
 
 def parse_git_datetime(git_dt) -> datetime:
@@ -17,13 +19,77 @@ def parse_git_datetime(git_dt) -> datetime:
         return git_dt.astimezone(timezone.utc)
     return datetime.now(timezone.utc)
 
-def extract_commit_stats(commit: git.Commit) -> tuple[int, int, int]:
-    """Safely extracts (lines_added, lines_deleted, files_changed) from a git commit."""
+def is_ignored_file(fpath: str, insertions: int) -> tuple[bool, str]:
+    """
+    Checks if a file path belongs to ignored directories, lockfiles, minified files,
+    media/fonts/binaries, or large data files exceeding configured line threshold.
+    Returns (is_ignored, reason).
+    """
+    normalized = fpath.replace("\\", "/").strip("/")
+    parts = normalized.split("/")
+    filename = parts[-1].lower()
+
+    # Check directory components
+    ignored_dirs = [d.lower() for d in getattr(settings, "IGNORED_DIRS", [])]
+    for dir_part in parts[:-1]:
+        if dir_part.lower() in ignored_dirs:
+            return True, f"ignored directory: {dir_part}"
+
+    # Check filename patterns (e.g. *.lock, package-lock.json, *.min.js, *.map)
+    ignored_patterns = getattr(settings, "IGNORED_FILE_PATTERNS", [])
+    for pat in ignored_patterns:
+        if fnmatch.fnmatch(filename, pat.lower()):
+            return True, f"pattern: {pat}"
+
+    # Check extension for binaries / media / fonts
+    ext = Path(filename).suffix.lower()
+    ignored_exts = [e.lower() for e in getattr(settings, "IGNORED_EXTENSIONS", [])]
+    if ext in ignored_exts:
+        return True, f"media/font/binary asset ({ext})"
+
+    # Check large data files
+    large_data_exts = [e.lower() for e in getattr(settings, "LARGE_DATA_EXTENSIONS", [".json", ".csv", ".sql", ".tsv"])]
+    large_threshold = getattr(settings, "LARGE_DATA_LINE_THRESHOLD", 300)
+    if ext in large_data_exts and insertions > large_threshold:
+        return True, f"large data file ({ext}, {insertions} lines > {large_threshold})"
+
+    return False, ""
+
+def extract_commit_stats(commit: git.Commit) -> tuple[int, int, int, list[dict[str, Any]]]:
+    """
+    Extracts clean source-code stats (lines_added, lines_deleted, files_changed, excluded_items)
+    from a git commit by filtering out ignored directories, lockfiles, generated assets, and large data files.
+    """
+    clean_added = 0
+    clean_deleted = 0
+    clean_files = 0
+    excluded_items: list[dict[str, Any]] = []
+
     try:
-        stats = commit.stats.total
-        return stats.get("insertions", 0), stats.get("deletions", 0), stats.get("files", 0)
+        files_stats = commit.stats.files
+        if not files_stats:
+            total = commit.stats.total
+            return total.get("insertions", 0), total.get("deletions", 0), total.get("files", 0), []
+
+        for fpath, fstat in files_stats.items():
+            ins = fstat.get("insertions", 0)
+            dels = fstat.get("deletions", 0)
+            ignored, reason = is_ignored_file(fpath, ins)
+            if ignored:
+                excluded_items.append({
+                    "file": fpath,
+                    "lines": ins,
+                    "reason": reason,
+                    "commit": commit.hexsha[:7],
+                })
+            else:
+                clean_added += ins
+                clean_deleted += dels
+                clean_files += 1
+
+        return clean_added, clean_deleted, clean_files, excluded_items
     except Exception:
-        return 0, 0, 0
+        return 0, 0, 0, []
 
 def analyze_commit_history(
     analysis_id: int,
@@ -52,6 +118,7 @@ def analyze_commit_history(
 
     parsed_commits: list[dict[str, Any]] = []
     db_commits: list[Commit] = []
+    all_excluded_files: list[dict[str, Any]] = []
     
     running_net_lines = 0
     code_growth_timeline: list[dict[str, Any]] = []
@@ -69,7 +136,8 @@ def analyze_commit_history(
         c_author_dt = parse_git_datetime(c.authored_date)
         c_commit_dt = parse_git_datetime(c.committed_date)
 
-        added, deleted, files = extract_commit_stats(c)
+        added, deleted, files, excluded_items = extract_commit_stats(c)
+        all_excluded_files.extend(excluded_items)
         running_net_lines = max(0, running_net_lines + added - deleted)
 
         c_author_name = str(c.author.name or "Unknown").strip()
@@ -128,6 +196,54 @@ def analyze_commit_history(
     final_codebase_lines = running_net_lines if running_net_lines > 0 else sum(c["lines_added"] for c in parsed_commits)
     final_codebase_lines = max(1, final_codebase_lines)
 
+    # Excluded items summary
+    total_excluded_lines = sum(item["lines"] for item in all_excluded_files)
+    categories = {
+        "Directories (node_modules, venv, build, etc.)": 0,
+        "Lockfiles & Package Managers": 0,
+        "Minified Assets & Source Maps": 0,
+        "Images, Fonts & Media": 0,
+        "Large Data Files (.json, .csv, .sql > threshold)": 0,
+        "Other Non-Source": 0,
+    }
+    for item in all_excluded_files:
+        r = item["reason"].lower()
+        if "directory" in r:
+            categories["Directories (node_modules, venv, build, etc.)"] += item["lines"]
+        elif "lock" in r or "yarn" in r or "package-lock" in r:
+            categories["Lockfiles & Package Managers"] += item["lines"]
+        elif "min." in r or ".map" in r:
+            categories["Minified Assets & Source Maps"] += item["lines"]
+        elif "media" in r or "font" in r or "binary" in r:
+            categories["Images, Fonts & Media"] += item["lines"]
+        elif "large data" in r:
+            categories["Large Data Files (.json, .csv, .sql > threshold)"] += item["lines"]
+        else:
+            categories["Other Non-Source"] += item["lines"]
+
+    sample_excluded = sorted(all_excluded_files, key=lambda x: x["lines"], reverse=True)[:20]
+
+    burst_min_lines = getattr(settings, "BURST_MIN_LINES", 500)
+    burst_min_share = getattr(settings, "BURST_MIN_SHARE", 0.05)
+    burst_window_s = getattr(settings, "BURST_WINDOW_SECONDS", 900)
+
+    excluded_summary = {
+        "total_excluded_files": len(all_excluded_files),
+        "total_excluded_lines": total_excluded_lines,
+        "categories_breakdown": {k: v for k, v in categories.items() if v > 0},
+        "sample_excluded": [
+            {"file": s["file"], "lines": s["lines"], "reason": s["reason"], "commit": s["commit"]}
+            for s in sample_excluded
+        ],
+        "configured_rules": {
+            "ignored_dirs": getattr(settings, "IGNORED_DIRS", []),
+            "ignored_patterns": getattr(settings, "IGNORED_FILE_PATTERNS", []),
+            "large_data_threshold": getattr(settings, "LARGE_DATA_LINE_THRESHOLD", 300),
+            "burst_min_lines": burst_min_lines,
+            "burst_min_share_pct": round(burst_min_share * 100, 1),
+        }
+    }
+
     # 1. Thin-history check
     if total_commit_count <= 3:
         metrics = {
@@ -137,6 +253,7 @@ def analyze_commit_history(
             "warning": "insufficient history to analyze",
             "growth_timeline": code_growth_timeline,
             "authors": list(authors_map.values()),
+            "excluded_summary": excluded_summary,
         }
         _update_analysis_options(db, analysis_id, "commit_metrics", metrics)
         return metrics
@@ -162,9 +279,13 @@ def analyze_commit_history(
                 longest_gap_seconds = diff_seconds
                 longest_gap_pair = (prev_c["sha"][:7], curr_c["sha"][:7])
 
-        # Burst detection: large diff (> 500 lines or > 30% final lines) in a very short time (< 15 mins)
+        # Scaled Burst detection: must exceed both absolute minimum and percentage of final codebase in a short window
         share_of_final = curr_c["lines_added"] / final_codebase_lines
-        if (curr_c["lines_added"] >= 500 or share_of_final >= 0.30) and 0 <= diff_seconds <= 900:
+        if (
+            curr_c["lines_added"] >= burst_min_lines
+            and share_of_final >= burst_min_share
+            and 0 <= diff_seconds <= burst_window_s
+        ):
             bursts.append({
                 "sha": curr_c["sha"][:7],
                 "lines_added": curr_c["lines_added"],
@@ -257,6 +378,7 @@ def analyze_commit_history(
         },
         "heatmap": heatmap_matrix,
         "growth_timeline": code_growth_timeline,
+        "excluded_summary": excluded_summary,
     }
 
     _update_analysis_options(db, analysis_id, "commit_metrics", commit_metrics)

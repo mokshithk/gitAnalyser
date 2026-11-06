@@ -94,24 +94,69 @@ def generate_analysis_flags(analysis_id: int, db: Session) -> list[Flag]:
         )
         new_flags.append(f)
 
-    # 3. Burst pace anomaly ("large change in a short time")
+    # 3. Burst pace anomaly - Grouped into a single flag with calibrated multi-signal severity
     bursts = commit_metrics.get("bursts") or []
-    for b in bursts:
+    if bursts:
+        n_bursts = len(bursts)
+        flag_title = "1 large change in short window" if n_bursts == 1 else f"{n_bursts} large changes in short windows"
+
+        # Severity rule:
+        # A burst alone is MEDIUM at most.
+        # Use HIGH only if at least two different signals agree:
+        # (1) burst plus regular intervals,
+        # (2) burst plus high similarity, or
+        # (3) most of the final code in one commit.
+        has_regular_intervals = bool(commit_metrics.get("regular_interval_flag"))
+        has_high_similarity = any(m.score >= 0.70 for m in matches)
+        has_bulk_add = len(commit_metrics.get("large_share_commits") or []) > 0
+
+        severity = "medium"
+        corroborating = []
+        if has_regular_intervals:
+            corroborating.append("scripted regular intervals")
+        if has_high_similarity:
+            corroborating.append("high structural similarity")
+        if has_bulk_add:
+            corroborating.append("major share added in single commit")
+
+        if corroborating:
+            severity = "high"
+
+        burst_commits_evidence = [
+            {
+                "sha": b.get("sha"),
+                "lines": b.get("lines_added"),
+                "seconds": b.get("seconds_since_prev"),
+                "share_percentage": b.get("share_percentage"),
+            }
+            for b in bursts
+        ]
+
+        sample_shas = ", ".join(b.get("sha", "") for b in bursts[:4])
+        change_phrase = "large change in a short time" if n_bursts == 1 else "large changes in short windows"
+        desc = f"{n_bursts} commit(s) introduced {change_phrase} (< 15 mins)."
+        if corroborating:
+            desc += f" Corroborated with secondary signal: {', '.join(corroborating)}."
+        else:
+            desc += " Evaluated as isolated pace anomaly (standalone burst without secondary corroboration)."
+
+        questions = [
+            f"Explain the development process behind burst commit(s) {sample_shas}. Were portions of this code drafted offline, copied from prototypes, or ported?",
+            "Can you explain the architecture and key functions added in these rapid commits line by line without referencing external notes?"
+        ]
+
         f = Flag(
             analysis_id=analysis_id,
             type="BURST_PACE_ANOMALY",
-            severity="high",
-            confidence=0.90,
-            title="Large change in a short time",
+            severity=severity,
+            confidence=0.90 if severity == "high" else 0.75,
+            title=flag_title,
             evidence={
-                "sha": b.get("sha"),
-                "lines_added": b.get("lines_added"),
-                "seconds_since_prev": b.get("seconds_since_prev"),
-                "description": b.get("description"),
-                "questions": [
-                    f"Commit {b.get('sha')} introduced {b.get('lines_added')} lines within {b.get('seconds_since_prev')}s of previous commit. Was this code copied or ported from an external reference or drafted offline?",
-                    "Walk us through the logic of this function or class line by line."
-                ]
+                "burst_count": n_bursts,
+                "commits": burst_commits_evidence,
+                "corroborating_signals": corroborating,
+                "description": desc,
+                "questions": questions,
             },
             review_status="open",
         )

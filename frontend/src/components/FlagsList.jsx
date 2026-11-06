@@ -91,6 +91,29 @@ export default function FlagsList({ flags, onUpdateFlag }) {
             {/* Evidence Body */}
             <div style={{ marginTop: '0.75rem', fontSize: '0.825rem', color: '#cbd5e1', lineHeight: 1.5 }}>
               {ev.description && <p style={{ marginBottom: '0.4rem' }}>{ev.description}</p>}
+              {ev.commits && ev.commits.length > 0 && (
+                <div style={{ marginTop: '0.5rem', marginBottom: '0.6rem', background: '#0b1120', padding: '0.6rem', borderRadius: '4px', border: '1px solid #1e293b' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', marginBottom: '0.4rem' }}>
+                    Burst Commits in Window ({ev.commits.length}):
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    {ev.commits.map((c, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontFamily: 'var(--font-mono)' }}>
+                        <span style={{ color: '#38bdf8' }}>{c.sha}</span>
+                        <span style={{ color: '#4ade80' }}>+{c.lines} lines</span>
+                        <span style={{ color: '#94a3b8' }}>within {c.seconds}s</span>
+                        {c.share_percentage ? <span style={{ color: '#f59e0b' }}>({c.share_percentage}% of final)</span> : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {ev.corroborating_signals && ev.corroborating_signals.length > 0 && (
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.4rem' }}>
+                  <span style={{ color: '#94a3b8' }}>Corroborated by:</span>
+                  <span style={{ color: '#ef4444', fontWeight: 600 }}>{ev.corroborating_signals.join(', ')}</span>
+                </div>
+              )}
               {ev.sha && (
                 <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.4rem' }}>
                   <span style={{ color: '#94a3b8' }}>Commit SHA:</span>

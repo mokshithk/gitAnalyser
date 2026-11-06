@@ -139,3 +139,56 @@ def test_regular_interval_detection(tmp_path, db_session, test_user):
     res = analyze_commit_history(analysis.id, repo_dir, db_session)
     assert res["regular_interval_flag"] is True
     assert res["regular_interval_std_dev"] < 5.0
+
+def test_ignored_files_do_not_trigger_burst(tmp_path, db_session, test_user):
+    repo_dir = tmp_path / "vendored_repo"
+    repo = git.Repo.init(repo_dir)
+
+    base_time = int(time.time()) - 20000
+
+    def dt_obj(s):
+        return datetime.fromtimestamp(s, timezone.utc)
+
+    # 4 commits
+    f = repo_dir / "app.py"
+    f.write_text("a = 1\n")
+    repo.index.add(["app.py"])
+    repo.index.commit("Commit 1", commit_date=dt_obj(base_time), author_date=dt_obj(base_time))
+
+    f.write_text("a = 2\n")
+    repo.index.add(["app.py"])
+    repo.index.commit("Commit 2", commit_date=dt_obj(base_time + 1000), author_date=dt_obj(base_time + 1000))
+
+    # Commit 3: Adds massive node_modules and package-lock within 10 seconds
+    nm_dir = repo_dir / "node_modules" / "some_pkg"
+    nm_dir.mkdir(parents=True)
+    nm_file = nm_dir / "bundle.js"
+    nm_file.write_text("\n".join([f"console.log({i});" for i in range(1200)]))
+
+    lock_file = repo_dir / "package-lock.json"
+    lock_file.write_text("\n".join([f'"line_{i}": true,' for i in range(2500)]))
+
+    repo.index.add(["node_modules/some_pkg/bundle.js", "package-lock.json"])
+    repo.index.commit("Vendored dependencies", commit_date=dt_obj(base_time + 1010), author_date=dt_obj(base_time + 1010))
+
+    # Commit 4
+    f.write_text("a = 3\n")
+    repo.index.add(["app.py"])
+    repo.index.commit("Commit 4", commit_date=dt_obj(base_time + 2000), author_date=dt_obj(base_time + 2000))
+
+    analysis = Analysis(
+        user_id=test_user.id,
+        input_type="git_url",
+        source="https://example.com/vendored.git",
+        mode="full",
+        status="parsing",
+    )
+    db_session.add(analysis)
+    db_session.commit()
+    db_session.refresh(analysis)
+
+    res = analyze_commit_history(analysis.id, repo_dir, db_session)
+    assert res["thin_history"] is False
+    # Bursts must be empty because only non-source files were added
+    assert len(res["bursts"]) == 0
+    assert res["excluded_summary"]["total_excluded_lines"] >= 3700
