@@ -1,0 +1,32 @@
+# Python virtual environment & caches
+.venv/
+.cache/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+
+# Node & Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.cache/
+
+# Workdir & Uploads
+workdir/
+
+# Environment secrets
+.env
+
+# Evaluation test clones
+eval/repos/
+
+# Local OS files
+.DS_Store
+Thumbs.db
+*.log
+
+# Skills directory protection
+skills/
