@@ -1,0 +1,95 @@
+{
+  "genuine_1": {
+    "class": "genuine_history",
+    "is_anomalous": false,
+    "expected_flags": [],
+    "description": "Authentic incremental development with natural time gaps"
+  },
+  "genuine_2": {
+    "class": "genuine_history",
+    "is_anomalous": false,
+    "expected_flags": [],
+    "description": "Authentic incremental development with natural time gaps"
+  },
+  "genuine_3": {
+    "class": "genuine_history",
+    "is_anomalous": false,
+    "expected_flags": [],
+    "description": "Authentic incremental development with natural time gaps"
+  },
+  "direct_copy_1": {
+    "class": "direct_copy",
+    "is_anomalous": true,
+    "expected_flags": [
+      "HIGH_AST_SIMILARITY",
+      "SINGLE_COMMIT_BULK_ADD"
+    ],
+    "description": "Verbatim copy of reference algorithms added in a bulk commit"
+  },
+  "direct_copy_2": {
+    "class": "direct_copy",
+    "is_anomalous": true,
+    "expected_flags": [
+      "HIGH_AST_SIMILARITY",
+      "SINGLE_COMMIT_BULK_ADD"
+    ],
+    "description": "Verbatim copy of reference algorithms added in a bulk commit"
+  },
+  "direct_copy_3": {
+    "class": "direct_copy",
+    "is_anomalous": true,
+    "expected_flags": [
+      "HIGH_AST_SIMILARITY",
+      "SINGLE_COMMIT_BULK_ADD"
+    ],
+    "description": "Verbatim copy of reference algorithms added in a bulk commit"
+  },
+  "renamed_copy_1": {
+    "class": "renamed_restructured_copy",
+    "is_anomalous": true,
+    "expected_flags": [
+      "HIGH_AST_SIMILARITY"
+    ],
+    "description": "Restructured twin with renamed identifiers to evade naive text grep"
+  },
+  "renamed_copy_2": {
+    "class": "renamed_restructured_copy",
+    "is_anomalous": true,
+    "expected_flags": [
+      "HIGH_AST_SIMILARITY"
+    ],
+    "description": "Restructured twin with renamed identifiers to evade naive text grep"
+  },
+  "renamed_copy_3": {
+    "class": "renamed_restructured_copy",
+    "is_anomalous": true,
+    "expected_flags": [
+      "HIGH_AST_SIMILARITY"
+    ],
+    "description": "Restructured twin with renamed identifiers to evade naive text grep"
+  },
+  "fake_history_1": {
+    "class": "fake_history",
+    "is_anomalous": true,
+    "expected_flags": [
+      "SCRIPTED_REGULAR_PACE"
+    ],
+    "description": "Scripted replay with perfectly uniform 60-second commit intervals"
+  },
+  "fake_history_2": {
+    "class": "fake_history",
+    "is_anomalous": true,
+    "expected_flags": [
+      "SCRIPTED_REGULAR_PACE"
+    ],
+    "description": "Scripted replay with perfectly uniform 60-second commit intervals"
+  },
+  "fake_history_3": {
+    "class": "fake_history",
+    "is_anomalous": true,
+    "expected_flags": [
+      "SCRIPTED_REGULAR_PACE"
+    ],
+    "description": "Scripted replay with perfectly uniform 60-second commit intervals"
+  }
+}
