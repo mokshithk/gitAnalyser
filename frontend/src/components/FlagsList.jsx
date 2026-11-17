@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 export default function FlagsList({ flags, onUpdateFlag }) {
   const [editingNotes, setEditingNotes] = useState({});
   const [savingId, setSavingId] = useState(null);
+  const [filter, setFilter] = useState('ALL'); // 'ALL', 'OPEN', 'HIGH', 'MEDIUM'
 
   if (!flags || flags.length === 0) {
     return (
@@ -16,6 +17,58 @@ export default function FlagsList({ flags, onUpdateFlag }) {
       </div>
     );
   }
+
+  const handleExportMarkdown = () => {
+    let md = `# CodeProvenance Triage & Viva Interview Guide\n\n`;
+    md += `*Generated: ${new Date().toLocaleString()}*\n\n`;
+    md += `> **Important**: These questions provide evidence-based conversational signals for technical interviews and triage. Authentic developers will readily explain their architectural choices and code structure.\n\n`;
+    md += `---\n\n`;
+
+    flags.forEach((flag, idx) => {
+      const ev = flag.evidence || {};
+      const qs = ev.questions || [];
+      md += `### ${idx + 1}. [${flag.severity.toUpperCase()}] ${flag.title}\n`;
+      if (ev.description) {
+        md += `**Observation**: ${ev.description}\n\n`;
+      }
+      if (ev.commits && ev.commits.length > 0) {
+        md += `**Flagged Commits**:\n`;
+        ev.commits.forEach(c => {
+          md += `- \`${c.sha}\`: +${c.lines} lines within ${c.seconds}s${c.share_percentage ? ` (${c.share_percentage}% of code)` : ''}\n`;
+        });
+        md += `\n`;
+      }
+      if (qs.length > 0) {
+        md += `**Suggested Viva / Interview Questions**:\n`;
+        qs.forEach((q, qIdx) => {
+          md += `${qIdx + 1}. ${q}\n`;
+        });
+        md += `\n`;
+      }
+      md += `---\n\n`;
+    });
+
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'viva_interview_questions.md');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const openCount = flags.filter(f => f.review_status === 'open').length;
+  const highCount = flags.filter(f => f.severity === 'high').length;
+  const medCount = flags.filter(f => f.severity === 'medium').length;
+
+  const filteredFlags = flags.filter(f => {
+    if (filter === 'OPEN') return f.review_status === 'open';
+    if (filter === 'HIGH') return f.severity === 'high';
+    if (filter === 'MEDIUM') return f.severity === 'medium';
+    return true;
+  });
 
   const handleStatusChange = async (flagId, newStatus) => {
     try {
@@ -38,7 +91,78 @@ export default function FlagsList({ flags, onUpdateFlag }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      {flags.map((flag) => {
+      {/* Filter and Export Bar */}
+      <div className="card" style={{ padding: '0.75rem 1rem', background: '#0e1726', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button
+            onClick={() => setFilter('ALL')}
+            className="btn btn-secondary"
+            style={{
+              padding: '0.25rem 0.6rem',
+              fontSize: '0.75rem',
+              background: filter === 'ALL' ? '#1e293b' : 'transparent',
+              borderColor: filter === 'ALL' ? '#0284c7' : '#334155',
+              color: filter === 'ALL' ? '#f8fafc' : '#94a3b8'
+            }}
+          >
+            All Flags ({flags.length})
+          </button>
+          <button
+            onClick={() => setFilter('OPEN')}
+            className="btn btn-secondary"
+            style={{
+              padding: '0.25rem 0.6rem',
+              fontSize: '0.75rem',
+              background: filter === 'OPEN' ? '#1e293b' : 'transparent',
+              borderColor: filter === 'OPEN' ? '#f87171' : '#334155',
+              color: filter === 'OPEN' ? '#f87171' : '#94a3b8'
+            }}
+          >
+            Needs Review ({openCount})
+          </button>
+          <button
+            onClick={() => setFilter('HIGH')}
+            className="btn btn-secondary"
+            style={{
+              padding: '0.25rem 0.6rem',
+              fontSize: '0.75rem',
+              background: filter === 'HIGH' ? '#1e293b' : 'transparent',
+              borderColor: filter === 'HIGH' ? '#ef4444' : '#334155',
+              color: filter === 'HIGH' ? '#ef4444' : '#94a3b8'
+            }}
+          >
+            High Severity ({highCount})
+          </button>
+          <button
+            onClick={() => setFilter('MEDIUM')}
+            className="btn btn-secondary"
+            style={{
+              padding: '0.25rem 0.6rem',
+              fontSize: '0.75rem',
+              background: filter === 'MEDIUM' ? '#1e293b' : 'transparent',
+              borderColor: filter === 'MEDIUM' ? '#f59e0b' : '#334155',
+              color: filter === 'MEDIUM' ? '#f59e0b' : '#94a3b8'
+            }}
+          >
+            Medium ({medCount})
+          </button>
+        </div>
+
+        <button
+          onClick={handleExportMarkdown}
+          className="btn btn-secondary"
+          style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem', borderColor: '#38bdf8', color: '#38bdf8' }}
+        >
+          &darr; Export Questions (.md)
+        </button>
+      </div>
+
+      {filteredFlags.length === 0 ? (
+        <div className="card" style={{ textAlign: 'center', padding: '1.5rem', color: '#94a3b8', fontSize: '0.85rem' }}>
+          No flags match the selected filter.
+        </div>
+      ) : (
+        filteredFlags.map((flag) => {
         const ev = flag.evidence || {};
         const questions = ev.questions || [];
         const isHigh = flag.severity === 'high';
@@ -171,7 +295,7 @@ export default function FlagsList({ flags, onUpdateFlag }) {
             </div>
           </div>
         );
-      })}
+      }))}
     </div>
   );
 }
