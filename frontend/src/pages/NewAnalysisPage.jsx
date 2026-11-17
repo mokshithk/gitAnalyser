@@ -10,6 +10,7 @@ export default function NewAnalysisPage({ onAnalysisCreated, onCancel }) {
   const [starterRepoUrl, setStarterRepoUrl] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [cloneTimeout, setCloneTimeout] = useState('60');
 
   // Zip Form State
   const [zipFile, setZipFile] = useState(null);
@@ -27,12 +28,14 @@ export default function NewAnalysisPage({ onAnalysisCreated, onCancel }) {
     setLoading(true);
 
     try {
+      const parsedTimeout = cloneTimeout ? parseInt(cloneTimeout, 10) : null;
       const payload = {
         repo_url: repoUrl.trim(),
         access_token: accessToken.trim() || null,
         starter_repo_url: starterRepoUrl.trim() || null,
         start_date: startDate ? new Date(startDate).toISOString() : null,
         end_date: endDate ? new Date(endDate).toISOString() : null,
+        clone_timeout_seconds: (parsedTimeout && !isNaN(parsedTimeout)) ? parsedTimeout : null,
       };
       const res = await api.submitGitUrl(payload);
       onAnalysisCreated(res.id);
@@ -73,10 +76,14 @@ export default function NewAnalysisPage({ onAnalysisCreated, onCancel }) {
     setLoading(true);
 
     try {
+      const parsedTimeout = cloneTimeout ? parseInt(cloneTimeout, 10) : null;
       // Submit each URL and navigate to the first created one
       let firstId = null;
       for (const url of urls) {
-        const res = await api.submitGitUrl({ repo_url: url });
+        const res = await api.submitGitUrl({
+          repo_url: url,
+          clone_timeout_seconds: (parsedTimeout && !isNaN(parsedTimeout)) ? parsedTimeout : null,
+        });
         if (!firstId) firstId = res.id;
       }
       onAnalysisCreated(firstId);
@@ -220,6 +227,22 @@ export default function NewAnalysisPage({ onAnalysisCreated, onCancel }) {
               </div>
             </div>
 
+            <div className="form-group">
+              <label className="form-label">Clone Timeout in Seconds (Optional, 10 – 600s)</label>
+              <input
+                type="number"
+                min="10"
+                max="600"
+                value={cloneTimeout}
+                onChange={(e) => setCloneTimeout(e.target.value)}
+                className="form-input"
+                placeholder="60"
+              />
+              <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.2rem', display: 'block' }}>
+                Default is 60s. For large repositories (&gt;20 MB) or slower connections, increase this (e.g. 180s – 300s).
+              </span>
+            </div>
+
             <button
               type="submit"
               disabled={loading}
@@ -286,6 +309,22 @@ export default function NewAnalysisPage({ onAnalysisCreated, onCancel }) {
               />
               <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.2rem', display: 'block' }}>
                 Batch mode analyzes each repository and generates an all-pairs pairwise similarity matrix.
+              </span>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Clone Timeout in Seconds (Optional, 10 – 600s)</label>
+              <input
+                type="number"
+                min="10"
+                max="600"
+                value={cloneTimeout}
+                onChange={(e) => setCloneTimeout(e.target.value)}
+                className="form-input"
+                placeholder="60"
+              />
+              <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.2rem', display: 'block' }}>
+                Default is 60s per repository.
               </span>
             </div>
 

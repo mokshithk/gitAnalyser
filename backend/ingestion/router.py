@@ -31,6 +31,8 @@ def submit_git_url(
         options["end_date"] = req.end_date.isoformat()
     if req.starter_repo_url:
         options["starter_repo_url"] = req.starter_repo_url.strip()
+    if req.clone_timeout_seconds:
+        options["clone_timeout_seconds"] = req.clone_timeout_seconds
     if req.access_token:
         # One-time use token, passed to worker in memory options, not stored in source
         options["access_token"] = req.access_token.strip()

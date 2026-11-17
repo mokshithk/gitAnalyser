@@ -35,10 +35,12 @@ def run_pipeline(analysis_id: int):
 
             options = analysis.options or {}
             access_token = options.get("access_token")
+            timeout_seconds = options.get("clone_timeout_seconds")
             clone_repository(
                 repo_url=analysis.source,
                 target_dir=workdir,
                 access_token=access_token,
+                timeout_seconds=timeout_seconds,
             )
 
         # 2. Inspect git mode & languages

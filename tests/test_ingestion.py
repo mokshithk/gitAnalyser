@@ -160,6 +160,31 @@ def test_clone_timeout_handling(tmp_path, db_session, test_user):
     finally:
         fresh_db.close()
 
+def test_custom_clone_timeout_option(db_session, test_user):
+    analysis = Analysis(
+        user_id=test_user.id,
+        input_type="git_url",
+        source="https://github.com/example/huge.git",
+        mode="full",
+        status="queued",
+        options={"clone_timeout_seconds": 300},
+    )
+    db_session.add(analysis)
+    db_session.commit()
+    db_session.refresh(analysis)
+
+    with patch("backend.ingestion.git_cloner.subprocess.run", side_effect=subprocess.TimeoutExpired(cmd=["git", "clone"], timeout=300)):
+        run_pipeline(analysis.id)
+
+    fresh_db = SessionLocal()
+    try:
+        reloaded = fresh_db.query(Analysis).filter(Analysis.id == analysis.id).first()
+        assert reloaded.status == "failed"
+        assert "Clone timed out after 300 seconds" in reloaded.error_message
+        assert reloaded.options.get("review_priority") == "NOT ANALYZED"
+    finally:
+        fresh_db.close()
+
 def test_failed_analysis_never_clean_priority(db_session, test_user):
     analysis = Analysis(
         user_id=test_user.id,

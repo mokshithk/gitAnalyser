@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional, Any
-from pydantic import BaseModel, ConfigDict, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 class GitUrlAnalysisRequest(BaseModel):
     repo_url: str
@@ -8,6 +8,7 @@ class GitUrlAnalysisRequest(BaseModel):
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     starter_repo_url: Optional[str] = None
+    clone_timeout_seconds: Optional[int] = Field(None, ge=10, le=600, description="Optional clone timeout in seconds (10 to 600)")
 
 class AnalysisItemResponse(BaseModel):
     id: int
