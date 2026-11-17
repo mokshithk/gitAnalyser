@@ -114,3 +114,55 @@ def read_and_parse_json(file_path):
 
     sim = compute_structural_similarity(fps1[0], fps2[0])
     assert sim < 0.35, f"Similarity between unrelated functions was {sim}, expected < 0.35"
+
+def test_pairwise_matrix_and_csv_export():
+    import io
+    import csv
+    from unittest.mock import MagicMock
+    from backend.similarity.router import get_pairwise_similarity_matrix, export_pairwise_similarity_csv
+    from backend.db.models import Analysis, SimilarityMatch
+
+    mock_user = MagicMock()
+    mock_user.id = 1
+
+    mock_a1 = MagicMock()
+    mock_a1.id = 10
+    mock_a1.source = "https://github.com/ex/repo1.git"
+    mock_a1.mode = "full"
+    mock_a1.created_at = None
+
+    mock_a2 = MagicMock()
+    mock_a2.id = 20
+    mock_a2.source = "https://github.com/ex/repo2.git"
+    mock_a2.mode = "full"
+    mock_a2.created_at = None
+
+    mock_m = MagicMock()
+    mock_m.analysis_id = 10
+    mock_m.target_ref = mock_a2.source
+    mock_m.score = 0.85
+
+    mock_db = MagicMock()
+    mock_query_a = MagicMock()
+    mock_query_a.filter.return_value.order_by.return_value.limit.return_value.all.return_value = [mock_a1, mock_a2]
+    mock_query_m = MagicMock()
+    mock_query_m.filter.return_value.all.return_value = [mock_m]
+
+    def mock_query(model):
+        if model == Analysis:
+            return mock_query_a
+        return mock_query_m
+
+    mock_db.query.side_effect = mock_query
+
+    res = get_pairwise_similarity_matrix(None, mock_user, mock_db)
+    assert len(res.labels) == 2
+    assert res.matrix[0][0] == 1.0
+    assert res.matrix[1][1] == 1.0
+    assert res.matrix[0][1] == 0.85
+    assert res.matrix[1][0] == 0.85
+
+    # Test CSV export
+    csv_resp = export_pairwise_similarity_csv(mock_user, mock_db)
+    assert csv_resp.media_type == "text/csv"
+    assert b"85.0%" in csv_resp.body
