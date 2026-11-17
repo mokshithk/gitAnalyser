@@ -18,6 +18,8 @@ export default function AnalysisDetailPage({ analysisId, onBack }) {
   const [activeTab, setActiveTab] = useState('flags'); // 'flags', 'timeline', 'growth', 'similarity', 'commits'
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [showExcluded, setShowExcluded] = useState(false);
+  const [commitSearch, setCommitSearch] = useState('');
+  const [selectedAuthor, setSelectedAuthor] = useState('ALL');
 
   const fetchAnalysisData = async () => {
     try {
@@ -414,37 +416,98 @@ export default function AnalysisDetailPage({ analysisId, onBack }) {
             <MatchViewer matches={matches} />
           )}
 
-          {activeTab === 'commits' && analysis.mode === 'full' && (
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
-                  <thead>
-                    <tr style={{ background: '#0b1120', borderBottom: '1px solid #334155', color: '#94a3b8' }}>
-                      <th style={{ padding: '0.6rem 1rem' }}>SHA</th>
-                      <th style={{ padding: '0.6rem 1rem' }}>Author</th>
-                      <th style={{ padding: '0.6rem 1rem' }}>Date</th>
-                      <th style={{ padding: '0.6rem 1rem' }}>Changes</th>
-                      <th style={{ padding: '0.6rem 1rem' }}>Message</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {commits.map((c) => (
-                      <tr key={c.sha} style={{ borderBottom: '1px solid #1e293b' }}>
-                        <td className="font-mono" style={{ padding: '0.6rem 1rem', color: '#38bdf8' }}>{c.sha.substring(0, 7)}</td>
-                        <td style={{ padding: '0.6rem 1rem', color: '#f8fafc' }}>{c.author_name}</td>
-                        <td style={{ padding: '0.6rem 1rem', color: '#94a3b8' }}>{new Date(c.commit_date).toLocaleString()}</td>
-                        <td className="font-mono" style={{ padding: '0.6rem 1rem' }}>
-                          <span style={{ color: '#22c55e' }}>+{c.lines_added}</span>{' '}
-                          <span style={{ color: '#ef4444' }}>-{c.lines_deleted}</span>
-                        </td>
-                        <td style={{ padding: '0.6rem 1rem', color: '#cbd5e1' }}>{c.message}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          {activeTab === 'commits' && analysis.mode === 'full' && (() => {
+            const uniqueAuthors = Array.from(new Set(commits.map(c => c.author_name).filter(Boolean)));
+            const filteredCommits = commits.filter(c => {
+              const matchesSearch = !commitSearch ||
+                c.message.toLowerCase().includes(commitSearch.toLowerCase()) ||
+                c.sha.toLowerCase().includes(commitSearch.toLowerCase());
+              const matchesAuthor = selectedAuthor === 'ALL' || c.author_name === selectedAuthor;
+              return matchesSearch && matchesAuthor;
+            });
+
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {/* Search & Author Filters */}
+                <div className="card" style={{ padding: '0.8rem 1rem', background: '#0e1726', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', gap: '0.75rem', flex: 1, minWidth: '260px' }}>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Search commits by message or SHA..."
+                      value={commitSearch}
+                      onChange={(e) => setCommitSearch(e.target.value)}
+                      style={{ flex: 1, padding: '0.4rem 0.75rem', fontSize: '0.8rem' }}
+                    />
+                    <select
+                      className="form-input"
+                      value={selectedAuthor}
+                      onChange={(e) => setSelectedAuthor(e.target.value)}
+                      style={{ padding: '0.4rem 0.75rem', fontSize: '0.8rem', background: '#1e293b' }}
+                    >
+                      <option value="ALL">All Authors ({commits.length})</option>
+                      {uniqueAuthors.map(auth => (
+                        <option key={auth} value={auth}>{auth}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                      Showing <strong>{filteredCommits.length}</strong> of {commits.length} commits
+                    </span>
+                    {(commitSearch || selectedAuthor !== 'ALL') && (
+                      <button
+                        onClick={() => { setCommitSearch(''); setSelectedAuthor('ALL'); }}
+                        className="btn btn-secondary"
+                        style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem' }}
+                      >
+                        Reset Filters
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
+                      <thead>
+                        <tr style={{ background: '#0b1120', borderBottom: '1px solid #334155', color: '#94a3b8' }}>
+                          <th style={{ padding: '0.6rem 1rem' }}>SHA</th>
+                          <th style={{ padding: '0.6rem 1rem' }}>Author</th>
+                          <th style={{ padding: '0.6rem 1rem' }}>Date</th>
+                          <th style={{ padding: '0.6rem 1rem' }}>Changes</th>
+                          <th style={{ padding: '0.6rem 1rem' }}>Message</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredCommits.length === 0 ? (
+                          <tr>
+                            <td colSpan="5" style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>
+                              No commits match the search filter.
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredCommits.map((c) => (
+                            <tr key={c.sha} style={{ borderBottom: '1px solid #1e293b' }}>
+                              <td className="font-mono" style={{ padding: '0.6rem 1rem', color: '#38bdf8' }}>{c.sha.substring(0, 7)}</td>
+                              <td style={{ padding: '0.6rem 1rem', color: '#f8fafc' }}>{c.author_name}</td>
+                              <td style={{ padding: '0.6rem 1rem', color: '#94a3b8' }}>{new Date(c.commit_date).toLocaleString()}</td>
+                              <td className="font-mono" style={{ padding: '0.6rem 1rem' }}>
+                                <span style={{ color: '#22c55e' }}>+{c.lines_added}</span>{' '}
+                                <span style={{ color: '#ef4444' }}>-{c.lines_deleted}</span>
+                              </td>
+                              <td style={{ padding: '0.6rem 1rem', color: '#cbd5e1' }}>{c.message}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       )}
 
