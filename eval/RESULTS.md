@@ -1,6 +1,6 @@
 # CodeProvenance Evaluation & Benchmark Results
 
-**Date of Execution:** 2026-11-06 17:09:24 UTC  
+**Date of Execution:** 2026-11-17 15:49:35 UTC  
 **Evaluation Target:** CodeProvenance (AST Structural Normalization + Commit History Telemetry) vs Plain Text-Diff Baseline (`difflib.SequenceMatcher`).
 
 ---

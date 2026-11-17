@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import argparse
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -35,7 +36,8 @@ def evaluate_repo_commits(repo_dir: Path) -> dict:
         if diff >= 0:
             intervals.append(diff)
         
-        ins, _, _ = extract_commit_stats(commits[i])
+        stats = extract_commit_stats(commits[i])
+        ins = stats[0]
         lines_added_list.append(ins)
 
     regular_pace = False
@@ -54,10 +56,11 @@ def evaluate_repo_commits(repo_dir: Path) -> dict:
         "total_commits": len(commits)
     }
 
-def run_benchmark():
-    print("=" * 70)
-    print("CodeProvenance Evaluation Benchmark")
-    print("=" * 70)
+def run_benchmark(output_path: str | Path | None = None, print_json: bool = False, quiet: bool = False):
+    if not quiet and not print_json:
+        print("=" * 70)
+        print("CodeProvenance Evaluation Benchmark")
+        print("=" * 70)
 
     if not GROUND_TRUTH_FILE.exists():
         print("Error: ground_truth.json not found. Run dataset_generator.py first.")
@@ -221,8 +224,48 @@ def run_benchmark():
 - **Multi-Language Support:** AST normalization is currently implemented for Python; other languages in this version rely on text and commit telemetry.
 """
 
-    RESULTS_FILE.write_text(md_content, encoding="utf-8")
-    print(f"Results report successfully written to: {RESULTS_FILE}")
+    out_file = Path(output_path) if output_path else RESULTS_FILE
+    out_file.write_text(md_content, encoding="utf-8")
+    if not quiet and not print_json:
+        print(f"Results report successfully written to: {out_file}")
+
+    if print_json:
+        summary_payload = {
+            "proposed_code_provenance": {
+                "precision": cp_prec,
+                "recall": cp_rec,
+                "fpr": cp_fpr,
+                "f1": cp_f1,
+                "tp": cp_tp,
+                "fn": cp_fn,
+                "fp": cp_fp,
+                "tn": cp_tn,
+            },
+            "text_diff_baseline": {
+                "precision": text_prec,
+                "recall": text_rec,
+                "fpr": text_fpr,
+                "f1": text_f1,
+                "tp": text_tp,
+                "fn": text_fn,
+                "fp": text_fp,
+                "tn": text_tn,
+            },
+            "cases_evaluated": len(results),
+        }
+        print(json.dumps(summary_payload, indent=2))
+
+    return {
+        "cp_f1": cp_f1,
+        "text_f1": text_f1,
+        "output_file": str(out_file),
+    }
 
 if __name__ == "__main__":
-    run_benchmark()
+    parser = argparse.ArgumentParser(description="CodeProvenance Evaluation Benchmark")
+    parser.add_argument("--output", type=str, default=None, help="Custom path for markdown report")
+    parser.add_argument("--json", action="store_true", help="Output summary metrics as JSON")
+    parser.add_argument("--quiet", action="store_true", help="Suppress verbose stdout output")
+    args = parser.parse_args()
+
+    run_benchmark(output_path=args.output, print_json=args.json, quiet=args.quiet)
