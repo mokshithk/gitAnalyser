@@ -42,10 +42,15 @@ async function request(endpoint, options = {}) {
   if (!res.ok) {
     let errorDetail = 'Request failed';
     try {
-      const errJson = await res.json();
-      errorDetail = errJson.detail || JSON.stringify(errJson);
+      const rawText = await res.text();
+      try {
+        const errJson = JSON.parse(rawText);
+        errorDetail = errJson.detail || JSON.stringify(errJson);
+      } catch {
+        errorDetail = rawText.trim() || `HTTP ${res.status}`;
+      }
     } catch {
-      errorDetail = await res.text();
+      errorDetail = `HTTP ${res.status}`;
     }
     throw new Error(errorDetail || `HTTP ${res.status}`);
   }
@@ -54,7 +59,15 @@ async function request(endpoint, options = {}) {
     return null;
   }
 
-  return res.json();
+  const text = await res.text();
+  if (!text) {
+    return null;
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
 }
 
 export const api = {
