@@ -3,6 +3,17 @@ import { api } from '../api';
 
 export default function Navbar({ user, onNavigate, onLogout, currentPage }) {
   const [usage, setUsage] = useState(null);
+  const [theme, setTheme] = useState(() => localStorage.getItem('cp_theme') || 'default');
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('cp_theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    const next = theme === 'default' ? 'midnight' : theme === 'midnight' ? 'high-contrast' : 'default';
+    setTheme(next);
+  };
 
   useEffect(() => {
     if (user) {
@@ -108,6 +119,15 @@ export default function Navbar({ user, onNavigate, onLogout, currentPage }) {
                   </span>
                 )}
               </div>
+
+              <button
+                onClick={toggleTheme}
+                className="btn btn-secondary"
+                style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem', color: '#94a3b8' }}
+                title={`Switch visual theme (Current: ${theme})`}
+              >
+                {theme === 'high-contrast' ? 'Theme: Contrast' : theme === 'midnight' ? 'Theme: Midnight' : 'Theme: Slate'}
+              </button>
 
               <button 
                 onClick={onLogout}

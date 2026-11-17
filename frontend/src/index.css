@@ -22,6 +22,27 @@
   --sev-clean: #10b981;
 }
 
+[data-theme="midnight"] {
+  --bg-primary: #050811;
+  --bg-surface: #0e1526;
+  --bg-surface-elevated: #151f38;
+  --border-color: #22314d;
+  --border-focus: #00d2ff;
+}
+
+[data-theme="high-contrast"] {
+  --bg-primary: #000000;
+  --bg-surface: #121212;
+  --bg-surface-elevated: #1c1c1c;
+  --text-primary: #ffffff;
+  --text-secondary: #e2e8f0;
+  --text-muted: #cbd5e1;
+  --border-color: #94a3b8;
+  --border-focus: #38bdf8;
+  --accent-green: #22c55e;
+  --accent-blue: #38bdf8;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
