@@ -179,3 +179,28 @@ def test_failed_analysis_never_clean_priority(db_session, test_user):
     assert report.review_priority == "NOT ANALYZED"
     assert report.review_priority != "CLEAN"
     assert report.review_priority != "LOW"
+
+def test_retention_cleanup():
+    from unittest.mock import MagicMock
+    from backend.scripts.cleanup_retention import cleanup_expired_analyses
+
+    mock_db = MagicMock()
+    mock_a = MagicMock()
+    mock_a.id = 9999
+
+    mock_db.query.return_value.filter.return_value.all.return_value = [mock_a]
+
+    # Dry run
+    res_dry = cleanup_expired_analyses(mock_db, retention_days=15, dry_run=True)
+    assert res_dry["expired_analyses_found"] == 1
+    assert res_dry["analyses_deleted"] == 0
+    assert res_dry["dry_run"] is True
+    assert mock_db.delete.call_count == 0
+
+    # Actual run
+    res_real = cleanup_expired_analyses(mock_db, retention_days=15, dry_run=False)
+    assert res_real["expired_analyses_found"] == 1
+    assert res_real["analyses_deleted"] == 1
+    assert res_real["dry_run"] is False
+    assert mock_db.delete.call_count == 1
+    assert mock_db.commit.call_count == 1
