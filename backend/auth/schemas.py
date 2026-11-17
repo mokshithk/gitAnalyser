@@ -30,3 +30,10 @@ class SystemLimitsResponse(BaseModel):
     clone_timeout_seconds: int
     retention_days: int
     scans_per_user_per_hour: int
+
+class UserUsageResponse(BaseModel):
+    scans_used: int
+    scans_limit: int
+    scans_remaining: int
+    resets_in_minutes: int
+    role: str

@@ -1,6 +1,16 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { api } from '../api';
 
 export default function Navbar({ user, onNavigate, onLogout, currentPage }) {
+  const [usage, setUsage] = useState(null);
+
+  useEffect(() => {
+    if (user) {
+      api.getUsage()
+        .then(data => setUsage(data))
+        .catch(() => {});
+    }
+  }, [user, currentPage]);
   return (
     <nav style={{
       background: '#1e293b',
@@ -61,6 +71,23 @@ export default function Navbar({ user, onNavigate, onLogout, currentPage }) {
               >
                 + New Analysis
               </button>
+
+              {usage && (
+                <span 
+                  className="badge" 
+                  style={{ 
+                    background: '#0b1120', 
+                    border: '1px solid #334155', 
+                    color: usage.scans_remaining <= 3 ? '#f87171' : '#38bdf8', 
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '0.75rem',
+                    padding: '0.35rem 0.65rem'
+                  }}
+                  title={`Hourly quota: ${usage.scans_used} scans used out of ${usage.scans_limit} per hour`}
+                >
+                  {usage.role === 'admin' ? 'Unlimited' : `${usage.scans_remaining}/${usage.scans_limit} scans left`}
+                </span>
+              )}
 
               <div style={{
                 background: '#0b1120',

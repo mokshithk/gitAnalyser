@@ -10,9 +10,12 @@ from backend.auth.schemas import (
     UserResponse,
     TokenResponse,
     SystemLimitsResponse,
+    UserUsageResponse,
 )
 from backend.auth.security import hash_password, verify_password, create_access_token
 from backend.auth.dependencies import get_current_user
+from backend.db.models import Analysis
+from datetime import datetime, timedelta, timezone
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -64,4 +67,30 @@ def get_system_limits():
         clone_timeout_seconds=settings.CLONE_TIMEOUT_SECONDS,
         retention_days=settings.RETENTION_DAYS,
         scans_per_user_per_hour=settings.SCANS_PER_USER_PER_HOUR,
+    )
+
+@router.get("/usage", response_model=UserUsageResponse)
+def get_user_usage(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    limit = settings.SCANS_PER_USER_PER_HOUR
+    one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
+
+    if current_user.role == "admin":
+        used = 0
+        remaining = 999
+    else:
+        used = db.query(Analysis).filter(
+            Analysis.user_id == current_user.id,
+            Analysis.created_at >= one_hour_ago
+        ).count()
+        remaining = max(0, limit - used)
+
+    return UserUsageResponse(
+        scans_used=used,
+        scans_limit=limit,
+        scans_remaining=remaining,
+        resets_in_minutes=60,
+        role=current_user.role
     )

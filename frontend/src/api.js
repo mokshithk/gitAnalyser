@@ -81,6 +81,10 @@ export const api = {
     return request('/auth/me');
   },
 
+  async getUsage() {
+    return request('/auth/usage');
+  },
+
   logout() {
     setToken(null);
   },

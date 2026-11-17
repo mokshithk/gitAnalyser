@@ -64,3 +64,20 @@ def test_user_register_and_login():
         "password": "wrongpassword"
     })
     assert bad_login.status_code == 401
+
+def test_user_usage_endpoint():
+    from unittest.mock import MagicMock
+    from backend.auth.router import get_user_usage
+
+    mock_user = MagicMock()
+    mock_user.id = 1
+    mock_user.role = "user"
+
+    mock_db = MagicMock()
+    mock_db.query.return_value.filter.return_value.count.return_value = 4
+
+    usage = get_user_usage(mock_user, mock_db)
+    assert usage.scans_used == 4
+    assert usage.scans_limit == 20
+    assert usage.scans_remaining == 16
+    assert usage.role == "user"
